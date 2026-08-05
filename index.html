@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Recusa de Embarque - Trem P21/P22</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --blue:#0d6efd;
+    --bg:#f2f4f7;
+    --card:#ffffff;
+    --text:#1a1a1a;
+    --muted:#6b7280;
+    --border:#e2e5ea;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:20px 16px 60px;
+  }
+  .wrap{max-width:520px;margin:0 auto;}
+  h1{font-size:22px;line-height:1.3;margin:0 0 4px;}
+  h1 .icon{margin-right:6px;}
+  p.subtitle{color:var(--muted);margin:0 0 20px;font-size:14px;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    margin:0 0 12px;
+  }
+  label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px;}
+  label:first-of-type{margin-top:0;}
+  input[type="text"],input[type="date"],input[type="number"],select,textarea{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:15px;
+    background:#fafbfc;
+  }
+  textarea{resize:vertical;min-height:60px;font-family:inherit;}
+  .row{display:flex;gap:10px;}
+  .row > div{flex:1;}
+  .check-main{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin:4px 0 8px;}
+  .sub-list{margin-left:26px;padding-left:10px;border-left:2px solid var(--border);display:none;}
+  .sub-list.show{display:block;}
+  .sub-item{display:flex;align-items:flex-start;gap:8px;font-size:14px;margin:6px 0;}
+  .sub-item input{margin-top:3px;}
+  .outros-field{margin-top:8px;margin-left:26px;}
+  .btns{display:flex;gap:10px;margin:18px 0;}
+  button{flex:1;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;}
+  #gerarPdf{background:var(--blue);color:#fff;}
+  #gerarPdf:disabled{background:#9db8e8;cursor:wait;}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:20px;
+    font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+ 
+  /* ===== TEMPLATE DO PDF (fora da tela, mas renderizado) ===== */
+  #pdfTemplate{
+    position:absolute;
+    left:-9999px;
+    top:0;
+    width:780px;
+    background:#fff;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#000;
+    font-size:12px;
+  }
+  #pdfTemplate .doc-header{
+    padding:10px 16px;
+    font-size:11px;
+    line-height:1.7;
+  }
+  #pdfTemplate .doc-header div{margin:0;}
+  #pdfTemplate #pdfBody{
+    border:2px solid #000;
+  }
+  #pdfTemplate .titulo-row{
+    display:flex;
+    align-items:center;
+    border-bottom:2px solid #000;
+  }
+  #pdfTemplate .logo-cell{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px 18px;
+    border-right:2px solid #000;
+  }
+  #pdfTemplate .logo-cell img{
+    display:block;
+    width:110px;
+    height:auto;
+  }
+  #pdfTemplate .titulo-cell{
+    flex:1;
+    text-align:center;
+    font-weight:bold;
+    font-size:13px;
+    line-height:1.5;
+    padding:10px 14px;
+  }
+  #pdfTemplate .titulo{
+    text-align:center;
+    font-weight:bold;
+    font-size:14px;
+    padding:12px 16px;
+    border-bottom:2px solid #000;
+  }
+  #pdfTemplate .linha-topo{
+    display:flex;
+    border-bottom:2px solid #000;
+  }
+  #pdfTemplate .linha-topo div{
+    flex:1;
+    padding:8px 14px;
+    font-weight:bold;
+    border-right:1px solid #000;
+  }
+  #pdfTemplate .linha-topo div:last-child{border-right:none;}
+  #pdfTemplate .barra{
+    background:#c9c9c9;
+    text-align:center;
+    font-weight:bold;
+    padding:6px;
+    border-top:2px solid #000;
+    border-bottom:2px solid #000;
+    letter-spacing:.03em;
+  }
+  #pdfTemplate .campos{padding:10px 16px;}
+  #pdfTemplate .campo-linha{display:flex;gap:24px;padding:4px 0;}
+  #pdfTemplate .campo-linha div{flex:1;}
+  #pdfTemplate .campo-linha b{font-weight:bold;}
+  #pdfTemplate .oc-bloco{padding:10px 16px;}
+  #pdfTemplate .oc-titulo{font-weight:bold;margin:8px 0 4px;display:flex;gap:8px;align-items:center;}
+  #pdfTemplate .oc-item{padding:2px 0 2px 26px;display:flex;gap:8px;align-items:flex-start;}
+  #pdfTemplate .box{
+    display:inline-block;width:12px;height:12px;border:1.5px solid #000;
+    text-align:center;line-height:12px;font-size:10px;flex-shrink:0;margin-top:1px;
+  }
+  #pdfTemplate .obs-box{
+    margin:10px 16px 16px;
+    border:1.5px solid #000;
+    min-height:90px;
+    padding:8px;
+    white-space:pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+ 
+  <h1><span class="icon">📄</span>Registro de Recusa de Embarque</h1>
+  <p class="subtitle">Problema de Documentação — Trem de Passageiros EFC</p>
+ 
+  <div class="card">
+    <h2>Dados Gerais</h2>
+    <div class="row">
+      <div><label>Trem P</label><input type="text" id="trem" placeholder="Ex: 21"></div>
+      <div><label>Data</label><input type="date" id="data"></div>
+    </div>
+    <label>Local</label>
+    <input type="text" id="local" placeholder="Ex: Altamira">
+  </div>
+ 
+  <div class="card">
+    <h2>Dados do Menor</h2>
+    <label>Nome</label>
+    <input type="text" id="menorNome">
+    <div class="row">
+      <div><label>Sexo</label>
+        <select id="menorSexo"><option value="">-</option><option value="M">M</option><option value="F">F</option></select>
+      </div>
+      <div><label>Idade</label><input type="number" id="menorIdade" min="0"></div>
+    </div>
+    <label>Nº Bilhete</label>
+    <input type="text" id="menorBilhete">
+    <div class="row">
+      <div><label>Origem</label><input type="text" id="menorOrigem"></div>
+      <div><label>Destino</label><input type="text" id="menorDestino"></div>
+    </div>
+    <label>Parentesco (com o responsável)</label>
+    <input type="text" id="menorParentesco">
+  </div>
+ 
+  <div class="card">
+    <h2>Dados do Responsável</h2>
+    <label>Nome</label>
+    <input type="text" id="respNome">
+    <div class="row">
+      <div><label>Sexo</label>
+        <select id="respSexo"><option value="">-</option><option value="M">M</option><option value="F">F</option></select>
+      </div>
+      <div><label>Idade</label><input type="number" id="respIdade" min="0"></div>
+    </div>
+    <label>Nº Bilhete</label>
+    <input type="text" id="respBilhete">
+    <div class="row">
+      <div><label>Origem</label><input type="text" id="respOrigem"></div>
+      <div><label>Destino</label><input type="text" id="respDestino"></div>
+    </div>
+    <label>Parentesco</label>
+    <input type="text" id="respParentesco">
+  </div>
+ 
+  <div class="card">
+    <h2>Classificação da Ocorrência</h2>
+ 
+    <div class="check-main">
+      <input type="checkbox" id="probMenor" onchange="toggleSub('probMenor','subMenor')">
+      <label for="probMenor" style="margin:0;">Problema com documento do menor</label>
+    </div>
+    <div class="sub-list" id="subMenor">
+      <div class="sub-item"><input type="checkbox" value="Menor sem certidão de nascimento"><span>Menor sem certidão de nascimento</span></div>
+      <div class="sub-item"><input type="checkbox" value="Cópia da CN não autenticada"><span>Cópia da CN não autenticada</span></div>
+      <div class="sub-item"><input type="checkbox" value="Autorização expedida pelos pais não autenticada"><span>Autorização expedida pelos pais não autenticada</span></div>
+      <div class="sub-item"><input type="checkbox" value="Carteira de vacinação"><span>Carteira de vacinação</span></div>
+      <div class="sub-item"><input type="checkbox" value="Teste do pezinho (nascido vivo)"><span>Teste do pezinho (nascido vivo)</span></div>
+      <div class="sub-item"><input type="checkbox" value="Cópia da autorização judicial"><span>Cópia da autorização judicial</span></div>
+      <div class="sub-item"><input type="checkbox" value="Autorização expedida pelo conselho tutelar"><span>Autorização expedida pelo conselho tutelar</span></div>
+      <div class="sub-item"><input type="checkbox" value="Apresentação de boletim de ocorrência"><span>Apresentação de boletim de ocorrência</span></div>
+      <div class="sub-item"><input type="checkbox" value="Carteira de estudante"><span>Carteira de estudante</span></div>
+      <div class="sub-item"><input type="checkbox" value="CPF"><span>CPF</span></div>
+      <div class="outros-field"><label>Outros</label><input type="text" id="outrosMenor"></div>
+    </div>
+ 
+    <div class="check-main" style="margin-top:16px;">
+      <input type="checkbox" id="probResp" onchange="toggleSub('probResp','subResp')">
+      <label for="probResp" style="margin:0;">Problema com documento do responsável</label>
+    </div>
+    <div class="sub-list" id="subResp">
+      <div class="sub-item"><input type="checkbox" value="Responsável sem doc. oficial de identificação"><span>Responsável sem doc. oficial de identificação</span></div>
+      <div class="sub-item"><input type="checkbox" value="Responsável menor de idade"><span>Responsável menor de idade</span></div>
+      <div class="sub-item"><input type="checkbox" value="Responsável não comprova parentesco"><span>Responsável não comprova parentesco</span></div>
+      <div class="sub-item"><input type="checkbox" value="Responsável sem autorização judicial"><span>Responsável sem autorização judicial</span></div>
+      <div class="outros-field"><label>Outros</label><input type="text" id="outrosResp"></div>
+    </div>
+  </div>
+ 
+  <div class="card">
+    <h2>Observações</h2>
+    <textarea id="obs" placeholder="Observações..."></textarea>
+  </div>
+ 
+  <div class="btns">
+    <button id="gerarPdf" onclick="gerarPDF()">⬇ Gerar e Baixar PDF</button>
+  </div>
+ 
+</div>
+ 
+<div class="toast" id="toast">PDF gerado!</div>
+ 
+<!-- TEMPLATE usado só para montar o PDF, no layout da planilha original -->
+<div id="pdfTemplate">
+      <!-- CABEÇALHO FIXO: será repetido em TODAS as páginas do PDF -->
+    <div class="doc-header">
+  <div><b>PRO-045177</b> - Procedimento Operacional Trem de Passageiros EFC . Rev. 02 - 30/09/2024</div>
+  <div><b>Diretoria Emitente:</b> Diretoria Corredor Norte</div>
+  <div><b>Responsável Técnico:</b> Ivoneide Maria Vieira de Aquino | <b>Matrícula:</b> 778795 | <b>Área:</b> Gerência de Operação Regional |</div>
+  <div><b>Público Alvo:</b> Chefes de Trem</div>
+  <div><b>Necessidade de Treiname Tarefa prioritária:</b> ( X )SIM &nbsp;&nbsp;( &nbsp;)NÃO</div>
+  <div><b>Anexo 05</b> - Recusa de Embarque</div>
+ 
+</div>
+ 
+   <!-- CORPO: dados do registro preenchido, flui e quebra de página normalmente -->
+  <div id="pdfBody">
+    <div class="titulo-row">
+      <div class="logo-cell">
+        <!-- COLE AQUI a sua tag <img src="data:image/png;base64,...."> original da logo VALE, sem alterar mais nada nesta linha -->
+        <img src="https://logodownload.org/wp-content/uploads/2014/05/vale-logo-1.png" alt="VALE">
+      </div>
+      <div class="titulo-cell">
+        <div>Registro de Recusa de Embarque por</div>
+        <div>Problema de Documentação - Trem de Passageiros EFC</div>
+      </div>
+    </div>
+  <div class="linha-topo">
+    <div id="pdfTrem">TREM P: ______</div>
+    <div id="pdfData">DATA: __/__/____</div>
+    <div id="pdfLocal">LOCAL: ______</div>
+  </div>
+ 
+  <div class="barra">DADOS DO MENOR</div>
+  <div class="campos">
+    <div class="campo-linha"><div><b>NOME: </b><span id="pTMNome"></span></div></div>
+    <div class="campo-linha">
+      <div><b>SEXO: </b><span id="pTMSexo"></span></div>
+      <div><b>IDADE: </b><span id="pTMIdade"></span></div>
+      <div><b>Nº BILHETE: </b><span id="pTMBilhete"></span></div>
+    </div>
+    <div class="campo-linha">
+      <div><b>ORIGEM: </b><span id="pTMOrigem"></span></div>
+      <div><b>DESTINO: </b><span id="pTMDestino"></span></div>
+    </div>
+    <div class="campo-linha"><div><b>PARENTESCO: </b><span id="pTMParentesco"></span></div></div>
+  </div>
+ 
+  <div class="barra">DADOS DO RESPONSÁVEL</div>
+  <div class="campos">
+    <div class="campo-linha"><div><b>NOME: </b><span id="pTRNome"></span></div></div>
+    <div class="campo-linha">
+      <div><b>SEXO: </b><span id="pTRSexo"></span></div>
+      <div><b>IDADE: </b><span id="pTRIdade"></span></div>
+      <div><b>Nº BILHETE: </b><span id="pTRBilhete"></span></div>
+    </div>
+    <div class="campo-linha">
+      <div><b>ORIGEM: </b><span id="pTROrigem"></span></div>
+      <div><b>DESTINO: </b><span id="pTRDestino"></span></div>
+    </div>
+    <div class="campo-linha"><div><b>PARENTESCO: </b><span id="pTRParentesco"></span></div></div>
+  </div>
+ 
+  <div class="barra">CLASSIFICAÇÃO DA OCORRÊNCIA</div>
+  <div class="oc-bloco">
+    <div class="oc-titulo"><span class="box" id="bMenor"></span> PROBLEMA COM DOCUMENTO DO MENOR</div>
+    <div id="listaMenorPdf"></div>
+ 
+    <div class="oc-titulo" style="margin-top:12px;"><span class="box" id="bResp"></span> PROBLEMA COM DOCUMENTO DO RESPONSÁVEL</div>
+    <div id="listaRespPdf"></div>
+  </div>
+ 
+  <div class="barra">OBSERVAÇÕES</div>
+  <div class="obs-box" id="pObs"></div>
+</div>
+ 
+<script>
+function toggleSub(checkId, listId){
+  const checked = document.getElementById(checkId).checked;
+  document.getElementById(listId).classList.toggle('show', checked);
+}
+ 
+function formatarData(iso){
+  if(!iso) return '__/__/____';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+ 
+function val(id){
+  return document.getElementById(id).value.trim();
+}
+ 
+function marcadorLista(listId, destinoId){
+  const itens = document.querySelectorAll(`#${listId} .sub-item input[type=checkbox]`);
+  const destino = document.getElementById(destinoId);
+  destino.innerHTML = '';
+  itens.forEach(item => {
+    const linha = document.createElement('div');
+    linha.className = 'oc-item';
+    const box = document.createElement('span');
+    box.className = 'box';
+    box.textContent = item.checked ? 'X' : '';
+    const texto = document.createElement('span');
+    texto.textContent = item.value;
+    linha.appendChild(box);
+    linha.appendChild(texto);
+    destino.appendChild(linha);
+  });
+}
+ 
+function preencherTemplate(){
+  document.getElementById('pdfTrem').textContent   = 'TREM P: ' + (val('trem') || '______');
+  document.getElementById('pdfData').textContent   = 'DATA: ' + formatarData(document.getElementById('data').value);
+  document.getElementById('pdfLocal').textContent  = 'LOCAL: ' + (val('local') || '______');
+ 
+  document.getElementById('pTMNome').textContent       = val('menorNome');
+  document.getElementById('pTMSexo').textContent       = val('menorSexo');
+  document.getElementById('pTMIdade').textContent      = val('menorIdade');
+  document.getElementById('pTMBilhete').textContent    = val('menorBilhete');
+  document.getElementById('pTMOrigem').textContent     = val('menorOrigem');
+  document.getElementById('pTMDestino').textContent    = val('menorDestino');
+  document.getElementById('pTMParentesco').textContent = val('menorParentesco');
+ 
+  document.getElementById('pTRNome').textContent       = val('respNome');
+  document.getElementById('pTRSexo').textContent       = val('respSexo');
+  document.getElementById('pTRIdade').textContent      = val('respIdade');
+  document.getElementById('pTRBilhete').textContent    = val('respBilhete');
+  document.getElementById('pTROrigem').textContent     = val('respOrigem');
+  document.getElementById('pTRDestino').textContent    = val('respDestino');
+  document.getElementById('pTRParentesco').textContent = val('respParentesco');
+ 
+  document.getElementById('bMenor').textContent = document.getElementById('probMenor').checked ? 'X' : '';
+  document.getElementById('bResp').textContent  = document.getElementById('probResp').checked ? 'X' : '';
+ 
+  marcadorLista('subMenor', 'listaMenorPdf');
+  marcadorLista('subResp', 'listaRespPdf');
+ 
+  const outrosM = val('outrosMenor');
+  if(outrosM){
+    const linha = document.createElement('div');
+    linha.className = 'oc-item';
+    linha.innerHTML = '<span class="box">X</span><span>OUTROS: ' + outrosM + '</span>';
+    document.getElementById('listaMenorPdf').appendChild(linha);
+  }
+  const outrosR = val('outrosResp');
+  if(outrosR){
+    const linha = document.createElement('div');
+    linha.className = 'oc-item';
+    linha.innerHTML = '<span class="box">X</span><span>OUTROS: ' + outrosR + '</span>';
+    document.getElementById('listaRespPdf').appendChild(linha);
+  }
+ 
+  document.getElementById('pObs').textContent = val('obs');
+}
+ 
+// Pontos "seguros" para cortar página, para não cortar uma linha/campo ao meio
+function coletarPontosDeCorte(bodyEl, scale){
+  const bodyRect = bodyEl.getBoundingClientRect();
+  const seletor = '.titulo-row, .linha-topo, .barra, .campo-linha, .oc-titulo, .oc-item, .obs-box';
+  const nodes = Array.from(bodyEl.querySelectorAll(seletor));
+  return nodes
+    .map(el => {
+      const r = el.getBoundingClientRect();
+      return (r.bottom - bodyRect.top) * scale;
+    })
+    .sort((a,b) => a - b);
+}
+ 
+async function gerarPDF(){
+  const btn = document.getElementById('gerarPdf');
+  btn.disabled = true;
+  btn.textContent = 'Gerando...';
+ 
+  preencherTemplate();
+ 
+  const SCALE = 2;
+  const headerEl = document.querySelector('#pdfTemplate .doc-header');
+  const bodyEl = document.getElementById('pdfBody');
+ 
+  const headerCanvas = await html2canvas(headerEl, {scale:SCALE, backgroundColor:'#ffffff'});
+  const bodyCanvas = await html2canvas(bodyEl, {scale:SCALE, backgroundColor:'#ffffff'});
+  const pontosDeCorte = coletarPontosDeCorte(bodyEl, SCALE);
+ 
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const gap = 4;
+  const usableWidth = pageWidth - margin * 2;
+ 
+  // Fator de conversão px(canvas) -> mm, baseado na largura (header e body têm a mesma largura)
+  const pxToMm = usableWidth / bodyCanvas.width;
+  const headerHeightMm = headerCanvas.height * pxToMm;
+  const headerImg = headerCanvas.toDataURL('image/png');
+ 
+  const alturaDisponivelBodyMm = pageHeight - margin * 2 - headerHeightMm - gap;
+  const alturaDisponivelBodyPx = alturaDisponivelBodyMm / pxToMm;
+ 
+  let inicioPx = 0;
+  let pagina = 0;
+ 
+  while (inicioPx < bodyCanvas.height) {
+    if (pagina > 0) pdf.addPage();
+ 
+    // Cabeçalho fixo repetido em todas as páginas
+    pdf.addImage(headerImg, 'PNG', margin, margin, usableWidth, headerHeightMm);
+ 
+    let fimIdealPx = inicioPx + alturaDisponivelBodyPx;
+    if (fimIdealPx < bodyCanvas.height) {
+      // procura o melhor ponto de corte que não corte uma linha ao meio
+      let melhorCorte = null;
+      for (const p of pontosDeCorte) {
+        if (p > inicioPx && p <= fimIdealPx) melhorCorte = p;
+      }
+      if (melhorCorte) fimIdealPx = melhorCorte;
+    } else {
+      fimIdealPx = bodyCanvas.height;
+    }
+ 
+    const alturaFatiaPx = Math.max(1, fimIdealPx - inicioPx);
+ 
+    const fatiaCanvas = document.createElement('canvas');
+    fatiaCanvas.width = bodyCanvas.width;
+    fatiaCanvas.height = alturaFatiaPx;
+    fatiaCanvas.getContext('2d').drawImage(
+      bodyCanvas,
+      0, inicioPx, bodyCanvas.width, alturaFatiaPx,
+      0, 0, bodyCanvas.width, alturaFatiaPx
+    );
+ 
+    const fatiaImg = fatiaCanvas.toDataURL('image/png');
+    const alturaFatiaMm = alturaFatiaPx * pxToMm;
+ 
+    pdf.addImage(fatiaImg, 'PNG', margin, margin + headerHeightMm + gap, usableWidth, alturaFatiaMm);
+ 
+    inicioPx = fimIdealPx;
+    pagina++;
+  }
+ 
+  const nomeArquivo = 'registro-recusa-embarque-' + (val('trem') || 'trem') + '.pdf';
+  pdf.save(nomeArquivo);
+ 
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1500);
+ 
+  btn.disabled = false;
+  btn.textContent = '⬇ Gerar e Baixar PDF';
+}
+</script>
+</body>
+</html>
+ 
